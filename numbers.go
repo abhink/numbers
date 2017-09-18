@@ -66,7 +66,7 @@ func ProcessURLs(ctx context.Context, cfg *Config, urls []string) <-chan []int {
 	// processURL takes the responsibility of performing all the requests and
 	// relaying their response over to caller. This function is also responsible
 	// for closing the outbound channel.
-	go processURLs2(ctx, cfg, urls, numbersCh)
+	go processURLs(ctx, cfg, urls, numbersCh)
 	return numbersCh
 }
 
@@ -80,17 +80,13 @@ func processURLs(ctx context.Context, cfg *Config, urls []string, out chan<- []i
 	var wg sync.WaitGroup
 
 	wg.Add(cfg.NumGoRoutines)
-	go func() {
-		wg.Wait()
-		close(out)
-	}()
 
 	// urlCh is used to fan out the input URL over to several goroutines for processing.
 	urlCh := make(chan string)
 
 	// Spin numGoRoutines number fo goroutines. Each goroutine waits on urlCh
 	// for new work.
-	for i := 0; i < numGoRoutines; i++ {
+	for i := 0; i < cfg.NumGoRoutines; i++ {
 		go func() {
 			defer wg.Done()
 			for url := range urlCh {
@@ -108,8 +104,10 @@ func processURLs(ctx context.Context, cfg *Config, urls []string, out chan<- []i
 			break
 		}
 	}
-
 	close(urlCh)
+
+	wg.Wait()
+	close(out)
 }
 
 // fetchResponse calls the functions to query the input URL. This function also
@@ -146,12 +144,7 @@ func fetchResponse(ctx context.Context, cfg *Config, url string) []int {
 func processURLs2(ctx context.Context, cfg *Config, urls []string, out chan []int) {
 	var wg sync.WaitGroup
 
-	go func() {
-		wg.Wait()
-		close(out)
-	}()
-
-	limiter := make(chan struct{}, numGoRoutines)
+	limiter := make(chan struct{}, cfg.NumGoRoutines)
 
 	for _, u := range urls {
 		// Below select unblocks only when limiter is not full or ctx is cancelled.
@@ -172,5 +165,7 @@ func processURLs2(ctx context.Context, cfg *Config, urls []string, out chan []in
 		}(u)
 	}
 
+	wg.Wait()
+	close(out)
 	close(limiter)
 }

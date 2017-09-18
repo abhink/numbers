@@ -127,6 +127,36 @@ func TestProcessURLsResponseTimeout(t *testing.T) {
 	}
 }
 
+func TestProcessURLsTooManyURLs(t *testing.T) {
+	urls := []string{}
+	for i := 0; i < 20; i++ { // total sequentiall fetch time == 200ms.
+		urls = append(urls, "http://rand10.10")
+	}
+
+	cfg := newConfig(70*time.Millisecond, 500*time.Millisecond)
+	cfg.NumGoRoutines = 2
+
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.ResponseTimeout)
+	defer cancel()
+
+	ch := ProcessURLs(ctx, cfg, urls)
+	var nilSlcCount, numCount int
+	for ns := range ch {
+		if ns == nil {
+			nilSlcCount++
+		}
+		for _ = range ns {
+			numCount++
+		}
+	}
+	if nilSlcCount == 0 {
+		t.Fatalf("every slice non-nil, no timeouts: %s", comp("at least 1 nil slice", nilSlcCount))
+	}
+	if numCount >= 200 {
+		t.Fatalf("received numbers from all the URLs, no timeout: %s", comp("< 200 numbers", numCount))
+	}
+}
+
 func newConfig(res, req time.Duration) *Config {
 	return &Config{
 		ResponseTimeout: res,
