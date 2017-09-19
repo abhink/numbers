@@ -84,7 +84,9 @@ To test, clone the repository under $GOPATH:
 `git clone https://github.com/abhink/numbers.git`
 
 `cd numbers`
+
 `go build numbers`
+
 `go run main/main.go # starts at http://localhost:8080 by dafault`
 
 In another console:
