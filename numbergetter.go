@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+// defaultGet implements URLGetter. This type has a simple implementation and only
+// requires an explicit timeout (response timeout) for instantiation.
 type defaultGet struct {
 	client *http.Client
 }
@@ -20,7 +22,7 @@ func NewDefaultGet(t time.Duration) *defaultGet {
 	}
 }
 
-// get performs the network request to GET the URL. The requests are created with
+// Get performs the network request to GET the URL. The requests are created with
 // the input context so that they may respect global timeouts and cancellations.
 func (g *defaultGet) Get(ctx context.Context, url string) ([]byte, error) {
 	req, err := http.NewRequest("GET", url, nil)
@@ -46,6 +48,10 @@ func (g *defaultGet) Get(ctx context.Context, url string) ([]byte, error) {
 	return data, nil
 }
 
+// Client returns the http.Client associated with the type.
 func (g *defaultGet) Client() *http.Client {
+	if g.client == nil {
+		g.client = &http.Client{}
+	}
 	return g.client
 }

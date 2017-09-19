@@ -14,6 +14,153 @@ import (
 	"time"
 )
 
+func TestProcessURLsAllOK(t *testing.T) {
+	expNumSlc := 2
+	expNumbers := 110
+
+	cfg := newConfig(500*time.Millisecond, 110*time.Millisecond)
+
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.ResponseTimeout)
+	defer cancel()
+
+	ch := ProcessURLs(ctx, cfg, []string{"http://rand10.50", "http://rand100.100"})
+	var slcCount, numCount int
+	for ns := range ch {
+		slcCount++
+		for _ = range ns {
+			numCount++
+		}
+	}
+	if slcCount != expNumSlc {
+		t.Fatalf("total slice count mismatch: %s", comp(expNumSlc, slcCount))
+	}
+	if numCount != expNumbers {
+		t.Fatalf("total numbers count mismatch: %s", comp(expNumbers, numCount))
+	}
+}
+
+func TestProcessURLsRequestTimeout(t *testing.T) {
+	expNumNilSlc := 1
+	expNumbers := 10
+
+	cfg := newConfig(500*time.Millisecond, 50*time.Millisecond)
+
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.ResponseTimeout)
+	defer cancel()
+
+	// http://rand100.100 should timeout since its response time > request timeout == 50ms.
+	ch := ProcessURLs(ctx, cfg, []string{"http://rand10.10", "http://rand100.100"})
+	var nilSlcCount, numCount int
+	for ns := range ch {
+		if ns == nil {
+			nilSlcCount++
+		}
+		for _ = range ns {
+			numCount++
+		}
+	}
+	if nilSlcCount != expNumNilSlc {
+		t.Fatalf("total nil slice count mismatch: %s", comp(expNumNilSlc, nilSlcCount))
+	}
+	if numCount != expNumbers {
+		t.Fatalf("total numbers count mismatch: %s", comp(expNumbers, numCount))
+	}
+}
+
+func TestProcessURLsResponseTimeout(t *testing.T) {
+	expNumNilSlc := 1
+	expNumbers := 10
+
+	cfg := newConfig(50*time.Millisecond, 500*time.Millisecond)
+
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.ResponseTimeout)
+	defer cancel()
+
+	// http://rand100.100 should timeout since its response time > context timeout == 50ms.
+	ch := ProcessURLs(ctx, cfg, []string{"http://rand10.10", "http://rand100.100"})
+	var nilSlcCount, numCount int
+	for ns := range ch {
+		if ns == nil {
+			nilSlcCount++
+		}
+		for _ = range ns {
+			numCount++
+		}
+	}
+	if nilSlcCount != expNumNilSlc {
+		t.Fatalf("total nil slice count mismatch: %s", comp(expNumNilSlc, nilSlcCount))
+	}
+	if numCount != 10 {
+		t.Fatalf("total numbers count mismatch: %s", comp(expNumbers, numCount))
+	}
+}
+
+func TestProcessURLsFailure(t *testing.T) {
+	expNumNilSlc := 2
+	expNumbers := 10
+
+	cfg := newConfig(50*time.Millisecond, 50*time.Millisecond)
+
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.ResponseTimeout)
+	defer cancel()
+
+	// http://fail.10 (serve side failure) and '://fail.10' (incorrect URL) should fail.
+	ch := ProcessURLs(ctx, cfg, []string{"http://fail.10", "://fail.10", "http://rand10.10"})
+	var nilSlcCount, numCount int
+	for ns := range ch {
+		if ns == nil {
+			nilSlcCount++
+		}
+		for _ = range ns {
+			numCount++
+		}
+	}
+	if nilSlcCount != expNumNilSlc {
+		t.Fatalf("not every slice non-nil, no failure: %s", comp(expNumNilSlc, nilSlcCount))
+	}
+	if numCount != expNumbers {
+		t.Fatalf("total numbers count mismatch: %s", comp(expNumbers, numCount))
+	}
+}
+
+func TestProcessURLsTooManyURLs(t *testing.T) {
+	urls := []string{}
+	// Total sequential fetch time == 200ms.
+	for i := 0; i < 20; i++ {
+		urls = append(urls, "http://rand10.10")
+	}
+
+	// With only two goroutines, not all 20 requests can be completed given
+	// a sort context timeout of 70ms.
+	cfg := newConfig(70*time.Millisecond, 500*time.Millisecond)
+	cfg.NumGoRoutines = 2
+
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.ResponseTimeout)
+	defer cancel()
+
+	ch := ProcessURLs(ctx, cfg, urls)
+	var nilSlcCount int
+	for ns := range ch {
+		if ns == nil {
+			nilSlcCount++
+		}
+	}
+	if nilSlcCount == 0 {
+		t.Fatalf("every slice non-nil, no timeouts: %s", comp("at least 1 nil slice", nilSlcCount))
+	}
+}
+
+func newConfig(res, req time.Duration) *Config {
+	return &Config{
+		ResponseTimeout: res,
+		URLGetter:       &testGetter{req},
+	}
+}
+
+func comp(exp, got interface{}) string {
+	return fmt.Sprintf("expected: %v -- got: %v", exp, got)
+}
+
 type testGetter struct {
 	getTimeout time.Duration
 }
@@ -59,111 +206,4 @@ func nRandomNumbers(n int) []byte {
 
 	data, _ := json.Marshal(res)
 	return data
-}
-
-func TestProcessURLsAllOK(t *testing.T) {
-	cfg := newConfig(500*time.Millisecond, 110*time.Millisecond)
-
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.ResponseTimeout)
-	defer cancel()
-
-	ch := ProcessURLs(ctx, cfg, []string{"http://rand10.50", "http://rand100.100"})
-	var slcCount, numCount int
-	for ns := range ch {
-		slcCount++
-		for _ = range ns {
-			numCount++
-		}
-	}
-	if slcCount != 2 {
-		t.Fatalf("total slice count mismatch: %s", comp(110, slcCount))
-	}
-	if numCount != 110 {
-		t.Fatalf("total numbers count mismatch: %s", comp(110, numCount))
-	}
-}
-
-func TestProcessURLsRequestTimeout(t *testing.T) {
-	cfg := newConfig(500*time.Millisecond, 50*time.Millisecond)
-
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.ResponseTimeout)
-	defer cancel()
-
-	ch := ProcessURLs(ctx, cfg, []string{"http://rand10.10", "http://rand100.100"})
-	var slcCount, numCount int
-	for ns := range ch {
-		slcCount++
-		for _ = range ns {
-			numCount++
-		}
-	}
-	if slcCount != 2 {
-		t.Fatalf("total slice count mismatch: %s", comp(110, slcCount))
-	}
-	if numCount != 10 {
-		t.Fatalf("total numbers count mismatch: %s", comp(110, numCount))
-	}
-}
-
-func TestProcessURLsResponseTimeout(t *testing.T) {
-	cfg := newConfig(50*time.Millisecond, 500*time.Millisecond)
-
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.ResponseTimeout)
-	defer cancel()
-
-	ch := ProcessURLs(ctx, cfg, []string{"http://rand10.10", "http://rand100.100"})
-	var slcCount, numCount int
-	for ns := range ch {
-		slcCount++
-		for _ = range ns {
-			numCount++
-		}
-	}
-	if slcCount != 2 {
-		t.Fatalf("total slice count mismatch: %s", comp(110, slcCount))
-	}
-	if numCount != 10 {
-		t.Fatalf("total numbers count mismatch: %s", comp(110, numCount))
-	}
-}
-
-func TestProcessURLsTooManyURLs(t *testing.T) {
-	urls := []string{}
-	for i := 0; i < 20; i++ { // total sequentiall fetch time == 200ms.
-		urls = append(urls, "http://rand10.10")
-	}
-
-	cfg := newConfig(70*time.Millisecond, 500*time.Millisecond)
-	cfg.NumGoRoutines = 2
-
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.ResponseTimeout)
-	defer cancel()
-
-	ch := ProcessURLs(ctx, cfg, urls)
-	var nilSlcCount, numCount int
-	for ns := range ch {
-		if ns == nil {
-			nilSlcCount++
-		}
-		for _ = range ns {
-			numCount++
-		}
-	}
-	if nilSlcCount == 0 {
-		t.Fatalf("every slice non-nil, no timeouts: %s", comp("at least 1 nil slice", nilSlcCount))
-	}
-	if numCount >= 200 {
-		t.Fatalf("received numbers from all the URLs, no timeout: %s", comp("< 200 numbers", numCount))
-	}
-}
-
-func newConfig(res, req time.Duration) *Config {
-	return &Config{
-		ResponseTimeout: res,
-		URLGetter:       &testGetter{req},
-	}
-}
-
-func comp(exp, got interface{}) string {
-	return fmt.Sprintf("expected: %v -- got: %v", exp, got)
 }

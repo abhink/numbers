@@ -45,7 +45,7 @@ type Config struct {
 }
 
 // numGoRoutines is the maximum number of goroutines allowed to run at a time.
-// This value can be configured using Opts.
+// This value can be configured using Config.
 var numGoRoutines = 20
 
 // This function returns a channel of []int instead of int's. This helps in case
@@ -113,8 +113,8 @@ func processURLs(ctx context.Context, cfg *Config, urls []string, out chan<- []i
 // fetchResponse calls the functions to query the input URL. This function also
 // decodes the response into appropriate type and returns only the slice of numbers.
 // In case of an error, a nil slice is returned.
-func fetchResponse(ctx context.Context, cfg *Config, url string) []int {
-	data, err := cfg.URLGetter.Get(ctx, url)
+func fetchResponse(ctx context.Context, ug URLGetter, url string) []int {
+	data, err := ug.Get(ctx, url)
 	if err != nil {
 		log.Printf("error GETing url %s: %v", url, err)
 		return nil

@@ -9,13 +9,14 @@ import (
 )
 
 // NumbersGetter is the exported type that handles incoming requests.
+// It is this functions responsibility to range over all the number
+// slices it recieves from ProcessURLs, collect them, and sort them.
 // It satisfies the http.ServeHTTP interface.
 type NumbersGetter struct {
 	Config
 }
 
-// ServeHTTP handles incoming requests. It does the following:
-//     1. P
+// ServeHTTP handles incoming requests.
 func (ng *NumbersGetter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		log.Fatal("incorrect form")
