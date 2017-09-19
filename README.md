@@ -77,3 +77,19 @@ contained within it is trivial.
 
 The server has been tested for multiple subsequent requests along with Go's in-built race detector. No failures were
 detected.
+
+
+To test, clone the repository under $GOPATH:
+
+`git clone https://github.com/abhink/numbers.git`
+
+`cd numbers`
+`go build numbers`
+`go run main/main.go # starts at http://localhost:8080 by dafault`
+
+In another console:
+
+`go run testserver/testserver.go # starts at http://localhost:8090 by dafault`
+
+Example query URL:
+http://localhost:8080/numbers?u=http://localhost:8090/primes&u=http://localhost:8090/fibo&u=http://localhost:8090/rand

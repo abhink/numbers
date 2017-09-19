@@ -23,11 +23,11 @@ type NumbersGetter struct {
 // ServeHTTP handles incoming requests.
 func (ng *NumbersGetter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		log.Fatal("incorrect form")
+		log.Fatal("invalid request form")
 	}
 
 	urls := r.Form["u"]
-	log.Printf("URLS: %v", urls)
+	log.Print("Input URLs: ", urls)
 
 	ctx, cancel := context.WithTimeout(r.Context(), ng.ResponseTimeout)
 	defer cancel()
