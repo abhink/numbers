@@ -124,6 +124,32 @@ func TestProcessURLsFailure(t *testing.T) {
 	}
 }
 
+func TestProcessURLsAllFailures(t *testing.T) {
+	expNumNilSlc := 4
+
+	cfg := newConfig(50*time.Millisecond, 50*time.Millisecond)
+
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.ResponseTimeout)
+	defer cancel()
+
+	// Every URL should fail.
+	ch := ProcessURLs(ctx, cfg, []string{
+		"http://fail.10",
+		"http://rand10.100",
+		"http://rand100.100",
+		"http://unavailableurl.com",
+	})
+	var nilSlcCount int
+	for ns := range ch {
+		if ns == nil {
+			nilSlcCount++
+		}
+	}
+	if nilSlcCount != expNumNilSlc {
+		t.Fatalf("not every slice non-nil, no failure: %s", comp(expNumNilSlc, nilSlcCount))
+	}
+}
+
 func TestProcessURLsTooManyURLs(t *testing.T) {
 	urls := []string{}
 	// Total sequential fetch time == 200ms.
