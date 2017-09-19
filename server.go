@@ -1,3 +1,7 @@
+// This file contains the type that can be used to serve over a network.
+// The type NumbersGetter implements http.ServeHTTP.
+// Remaining part of the Go challange about collecting and sorting of data
+// is also defined in this file as a property of NumbersGetter type.
 package numbers
 
 import (

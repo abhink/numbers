@@ -1,3 +1,5 @@
+// This file contains a default implementation of URLGetter interface. This is a
+// basic implementation of the interface that is used by default by the package.
 package numbers
 
 import (

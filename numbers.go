@@ -1,3 +1,7 @@
+// Package numbers implements the solution to the given challange. This file has
+// tpes and method that are primarily concerned with only making requests to the
+// input URLs and returning their response. This makes the core network related
+// functions of the package more generally accessible.
 package numbers
 
 import (

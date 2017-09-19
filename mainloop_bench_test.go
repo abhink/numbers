@@ -1,3 +1,10 @@
+// This file simply contains various way to collect numbers over a channel and sort them.
+// For sufficiently large count of numbers, there is not much performance difference
+// in mapThenAppend and mapAndAppend, so NumbersGetter uses mapThenAppend.
+// mapNoAppend has best performance but requires total count of numbers to be
+// known in advance.
+
+// Bechmark can be run using: `go test numbers -bench=. -run=Bench`
 package numbers
 
 import (
